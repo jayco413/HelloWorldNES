@@ -1,4 +1,4 @@
-import { assertTextColor, Controller, createBootedNes, rainbow, tapButton } from "../lib/nes_test_utils.mjs";
+import { assertTextColor, Controller, createBootedNes, rainbow, tapButton } from "../lib/hello_world_test_utils.mjs";
 
 const system = createBootedNes();
 const expectedAfterLeftPresses = [

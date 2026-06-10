@@ -1,4 +1,4 @@
-import { assertHelloWorldShape, createBootedNes } from "../lib/nes_test_utils.mjs";
+import { assertHelloWorldShape, createBootedNes } from "../lib/hello_world_test_utils.mjs";
 
 const system = createBootedNes();
 assertHelloWorldShape(system.getFrame());

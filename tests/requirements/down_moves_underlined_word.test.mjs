@@ -3,7 +3,7 @@ import {
   Controller,
   createBootedNes,
   tapButton
-} from "../lib/nes_test_utils.mjs";
+} from "../lib/hello_world_test_utils.mjs";
 
 const system = createBootedNes();
 

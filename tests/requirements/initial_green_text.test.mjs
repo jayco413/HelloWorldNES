@@ -1,4 +1,4 @@
-import { assertTextColor, createBootedNes, initialColor } from "../lib/nes_test_utils.mjs";
+import { assertTextColor, createBootedNes, initialColor } from "../lib/hello_world_test_utils.mjs";
 
 const system = createBootedNes();
 assertTextColor(system.getFrame(), initialColor);
