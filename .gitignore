@@ -1,0 +1,34 @@
+# Generated NES build outputs and hardware backups
+build/
+
+# Reusable NES tools live outside the repository
+tools/
+
+# Node dependencies and package-manager caches
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm/
+
+# Logs and temporary files
+*.log
+*.log.err
+*.tmp
+*.temp
+*.bak
+
+# Local machine configuration and secrets
+.env
+.env.*
+!.env.example
+
+# Editor and OS state
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.swp
+Thumbs.db
+Desktop.ini
