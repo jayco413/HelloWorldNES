@@ -6,7 +6,19 @@ PPUADDR   = $2006
 PPUDATA   = $2007
 JOYPAD1   = $4016
 APU_FRAME = $4017
+APU_STATUS = $4015
 DMC_FREQ  = $4010
+PULSE1_CTRL = $4000
+PULSE1_SWEEP = $4001
+PULSE1_TIMER_LO = $4002
+PULSE1_TIMER_HI = $4003
+PULSE2_CTRL = $4004
+PULSE2_SWEEP = $4005
+PULSE2_TIMER_LO = $4006
+PULSE2_TIMER_HI = $4007
+TRIANGLE_CTRL = $4008
+TRIANGLE_TIMER_LO = $400A
+TRIANGLE_TIMER_HI = $400B
 
 COLOR_INDEX   = $00
 JOY_CURRENT   = $01
@@ -24,6 +36,8 @@ TEMP_ROW = $0C
 TEMP_COL = $0D
 ADDR_LO = $0E
 ADDR_HI = $0F
+MUSIC_DELAY = $10
+MUSIC_INDEX = $11
 
 BUTTON_LEFT   = %00000001
 BUTTON_RIGHT  = %00000010
@@ -41,6 +55,10 @@ LAST_WORD_ROW = 27
 HELLO_BASE_COL = 10
 WORLD_BASE_COL = 16
 WORD_TILE_COUNT = 5
+MUSIC_BASS_HOLD = $00
+MUSIC_MELODY_REST = $01
+PULSE_SOFT_CTRL = $72
+PULSE_SILENT_CTRL = $70
 
 TILE_SPACE = $00
 TILE_H     = $01
@@ -84,6 +102,7 @@ TILE_UNDERLINE = $08
     stx PPUCTRL
     stx PPUMASK
     stx DMC_FREQ
+    stx APU_STATUS
     stx JOY_CURRENT
     stx JOY_PREVIOUS
     stx JOY_NEW_PRESS
@@ -101,6 +120,7 @@ TILE_UNDERLINE = $08
     sta HELLO_COL
     lda #WORLD_BASE_COL
     sta WORLD_COL
+    jsr init_music
 
 wait_vblank_1:
     bit PPUSTATUS
@@ -134,7 +154,7 @@ forever:
     lda INPUT_LOCK
     beq handle_input
     jsr advance_return_animation
-    jmp forever
+    jmp frame_done
 
 handle_input:
     jsr update_color_from_input
@@ -142,10 +162,13 @@ handle_input:
     jsr update_vertical_from_input
 
     lda COLOR_CHANGED
-    beq forever
+    beq frame_done
     jsr write_text_color
     lda #$00
     sta COLOR_CHANGED
+
+frame_done:
+    jsr tick_music
     jmp forever
 .endproc
 
@@ -153,6 +176,73 @@ handle_input:
 wait_loop:
     bit PPUSTATUS
     bpl wait_loop
+    rts
+.endproc
+
+.proc init_music
+    lda #PULSE_SOFT_CTRL
+    sta PULSE1_CTRL
+    lda #PULSE_SILENT_CTRL
+    sta PULSE2_CTRL
+    lda #$00
+    sta PULSE1_SWEEP
+    sta PULSE2_SWEEP
+    lda #$FF
+    sta TRIANGLE_CTRL
+    lda #$00
+    sta MUSIC_INDEX
+    sta MUSIC_DELAY
+    lda #%00000111
+    sta APU_STATUS
+    jsr tick_music
+    rts
+.endproc
+
+.proc tick_music
+    lda MUSIC_DELAY
+    beq play_note
+    dec MUSIC_DELAY
+    rts
+
+play_note:
+    ldx MUSIC_INDEX
+    lda moonlight_pulse_lo, x
+    sta PULSE1_TIMER_LO
+    lda moonlight_pulse_hi, x
+    sta PULSE1_TIMER_HI
+
+    ldy moonlight_melody_hi, x
+    beq melody_done
+    cpy #MUSIC_MELODY_REST
+    bne melody_note
+    lda #PULSE_SILENT_CTRL
+    sta PULSE2_CTRL
+    jmp melody_done
+
+melody_note:
+    lda #PULSE_SOFT_CTRL
+    sta PULSE2_CTRL
+    lda moonlight_melody_lo, x
+    sta PULSE2_TIMER_LO
+    sty PULSE2_TIMER_HI
+
+melody_done:
+    ldy moonlight_bass_hi, x
+    beq bass_done
+    lda moonlight_bass_lo, x
+    sta TRIANGLE_TIMER_LO
+    sty TRIANGLE_TIMER_HI
+
+bass_done:
+    lda moonlight_delay, x
+    sta MUSIC_DELAY
+    inx
+    cpx #moonlight_delay_end - moonlight_delay
+    bne store_index
+    ldx #$00
+
+store_index:
+    stx MUSIC_INDEX
     rts
 .endproc
 
@@ -761,6 +851,65 @@ hello_spiral_offsets:
 world_spiral_offsets:
     .byte $04, $04, $03, $02, $01, $00, $01, $02
     .byte $01, $00, $00, $00, $00, $00
+
+moonlight_delay:
+    .byte 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13
+    .byte 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 19
+    .byte 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 17
+    .byte 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 27
+moonlight_delay_end:
+
+moonlight_pulse_lo:
+    .byte $1A, $93, $52, $1A, $93, $52 ; G#3, C#4, E4 x2
+    .byte $1A, $93, $52, $1A, $93, $52 ; G#3, C#4, E4 x2
+    .byte $1A, $93, $52, $1A, $93, $52 ; G#3, C#4, E4 x2
+    .byte $1A, $93, $52, $1A, $93, $52 ; G#3, C#4, E4 x2
+    .byte $FB, $93, $52, $FB, $93, $52 ; A3, C#4, E4 x2
+    .byte $FB, $7C, $2D, $FB, $7C, $2D ; A3, D4, F#4 x2
+    .byte $1A, $C4, $52, $1A, $C4, $52 ; G#3, B3, E4 x2
+    .byte $1A, $AB, $67, $1A, $AB, $67 ; G#3, C4, D#4 x2
+
+moonlight_pulse_hi:
+    .byte $FA, $F9, $F9, $FA, $F9, $F9 ; G#3, C#4, E4 x2
+    .byte $FA, $F9, $F9, $FA, $F9, $F9 ; G#3, C#4, E4 x2
+    .byte $FA, $F9, $F9, $FA, $F9, $F9 ; G#3, C#4, E4 x2
+    .byte $FA, $F9, $F9, $FA, $F9, $F9 ; G#3, C#4, E4 x2
+    .byte $F9, $F9, $F9, $F9, $F9, $F9 ; A3, C#4, E4 x2
+    .byte $F9, $F9, $F9, $F9, $F9, $F9 ; A3, D4, F#4 x2
+    .byte $FA, $F9, $F9, $FA, $F9, $F9 ; G#3, B3, E4 x2
+    .byte $FA, $F9, $F9, $FA, $F9, $F9 ; G#3, C4, D#4 x2
+
+moonlight_melody_lo:
+    .byte $00, $00, $00, $00, $00, $00 ; rest
+    .byte $00, $00, $00, $00, $00, $00 ; hold
+    .byte $00, $00, $00, $00, $00, $00 ; hold
+    .byte $00, $00, $00, $00, $00, $00 ; hold
+    .byte $0C, $00, $0C, $00, $0C, $00 ; G#4, G#4, G#4
+    .byte $00, $00, $00, $00, $00, $00 ; hold
+    .byte $0C, $00, $0C, $00, $0C, $00 ; G#4, G#4, G#4
+    .byte $00, $00, $00, $00, $00, $00 ; hold, rest
+
+moonlight_melody_hi:
+    .byte $01, $00, $00, $00, $00, $00 ; rest
+    .byte $00, $00, $00, $00, $00, $00 ; hold
+    .byte $00, $00, $00, $00, $00, $00 ; hold
+    .byte $00, $00, $00, $00, $00, $00 ; hold
+    .byte $F9, $00, $F9, $00, $F9, $00 ; G#4, G#4, G#4
+    .byte $00, $00, $00, $00, $00, $00 ; hold
+    .byte $F9, $00, $F9, $00, $F9, $00 ; G#4, G#4, G#4
+    .byte $00, $00, $00, $00, $00, $01 ; hold, rest
+
+moonlight_bass_lo:
+    .byte $26, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00 ; C#2
+    .byte $89, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00 ; B1
+    .byte $F8, $00, $00, $00, $00, $00, $B8, $00, $00, $00, $00, $00 ; A1, F#1
+    .byte $34, $00, $00, $00, $00, $00, $34, $00, $00, $00, $00, $00 ; G#1
+
+moonlight_bass_hi:
+    .byte $FB, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00 ; C#2
+    .byte $FB, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00 ; B1
+    .byte $FB, $00, $00, $00, $00, $00, $FC, $00, $00, $00, $00, $00 ; A1, F#1
+    .byte $FC, $00, $00, $00, $00, $00, $FC, $00, $00, $00, $00, $00 ; G#1
 
 .ifdef CHR_RAM
 .macro chr_tile row0, row1, row2, row3, row4, row5, row6, row7

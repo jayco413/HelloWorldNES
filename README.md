@@ -2,7 +2,7 @@
 
 ## Game Manual
 
-HelloWorldNES is a small NES ROM that displays `Hello World` in colored text. It demonstrates controller input, palette changes, word selection, vertical movement, and boundary-return behavior.
+HelloWorldNES is a small NES ROM that displays `Hello World` in colored text with a Moonlight Sonata-inspired background music loop. It demonstrates controller input, palette changes, word selection, vertical movement, boundary-return behavior, and native NES APU sound.
 
 Controls:
 
