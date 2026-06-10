@@ -1,5 +1,5 @@
 import path from "node:path";
-import { assertRomHeader, loadRomBytes, romPath, root } from "../lib/nes_test_utils.mjs";
+import { assertRomHeader, loadRomBytes, romPath, root } from "../lib/hello_world_test_utils.mjs";
 
 const rom = loadRomBytes();
 assertRomHeader(rom);
