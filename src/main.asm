@@ -12,6 +12,9 @@ PULSE1_CTRL = $4000
 PULSE1_SWEEP = $4001
 PULSE1_TIMER_LO = $4002
 PULSE1_TIMER_HI = $4003
+TRIANGLE_CTRL = $4008
+TRIANGLE_TIMER_LO = $400A
+TRIANGLE_TIMER_HI = $400B
 
 COLOR_INDEX   = $00
 JOY_CURRENT   = $01
@@ -48,7 +51,7 @@ LAST_WORD_ROW = 27
 HELLO_BASE_COL = 10
 WORLD_BASE_COL = 16
 WORD_TILE_COUNT = 5
-MUSIC_NOTE_FRAMES = 8
+MUSIC_BASS_HOLD = $00
 
 TILE_SPACE = $00
 TILE_H     = $01
@@ -170,13 +173,16 @@ wait_loop:
 .endproc
 
 .proc init_music
-    lda #$B6
+    lda #$74
     sta PULSE1_CTRL
     lda #$00
     sta PULSE1_SWEEP
+    lda #$FF
+    sta TRIANGLE_CTRL
+    lda #$00
     sta MUSIC_INDEX
     sta MUSIC_DELAY
-    lda #$01
+    lda #%00000101
     sta APU_STATUS
     jsr tick_music
     rts
@@ -190,15 +196,22 @@ wait_loop:
 
 play_note:
     ldx MUSIC_INDEX
-    lda moonlight_timer_lo, x
+    lda moonlight_pulse_lo, x
     sta PULSE1_TIMER_LO
-    lda moonlight_timer_hi, x
+    lda moonlight_pulse_hi, x
     sta PULSE1_TIMER_HI
 
-    lda #MUSIC_NOTE_FRAMES
+    ldy moonlight_bass_hi, x
+    beq bass_done
+    lda moonlight_bass_lo, x
+    sta TRIANGLE_TIMER_LO
+    sty TRIANGLE_TIMER_HI
+
+bass_done:
+    lda moonlight_delay, x
     sta MUSIC_DELAY
     inx
-    cpx #moonlight_timer_lo_end - moonlight_timer_lo
+    cpx #moonlight_delay_end - moonlight_delay
     bne store_index
     ldx #$00
 
@@ -813,26 +826,44 @@ world_spiral_offsets:
     .byte $04, $04, $03, $02, $01, $00, $01, $02
     .byte $01, $00, $00, $00, $00, $00
 
-moonlight_timer_lo:
-    .byte $26, $1A, $93, $52 ; C#3, G#3, C#4, E4
-    .byte $1A, $93, $52, $1A ; G#3, C#4, E4, G#3
-    .byte $89, $1A, $C4, $52 ; B2, G#3, B3, E4
-    .byte $1A, $C4, $52, $1A ; G#3, B3, E4, G#3
-    .byte $F8, $A6, $FB, $93 ; A2, E3, A3, C#4
-    .byte $A6, $FB, $93, $A6 ; E3, A3, C#4, E3
-    .byte $34, $CE, $1A, $C4 ; G#2, D#3, G#3, B3
-    .byte $CE, $1A, $C4, $CE ; D#3, G#3, B3, D#3
-moonlight_timer_lo_end:
+moonlight_delay:
+    .byte 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13
+    .byte 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 19
+    .byte 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 17
+    .byte 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 27
+moonlight_delay_end:
 
-moonlight_timer_hi:
-    .byte $FB, $FA, $F9, $F9 ; C#3, G#3, C#4, E4
-    .byte $FA, $F9, $F9, $FA ; G#3, C#4, E4, G#3
-    .byte $FB, $FA, $F9, $F9 ; B2, G#3, B3, E4
-    .byte $FA, $F9, $F9, $FA ; G#3, B3, E4, G#3
-    .byte $FB, $FA, $F9, $F9 ; A2, E3, A3, C#4
-    .byte $FA, $F9, $F9, $FA ; E3, A3, C#4, E3
-    .byte $FC, $FA, $FA, $F9 ; G#2, D#3, G#3, B3
-    .byte $FA, $FA, $F9, $FA ; D#3, G#3, B3, D#3
+moonlight_pulse_lo:
+    .byte $1A, $93, $52, $1A, $93, $52 ; G#3, C#4, E4 x2
+    .byte $1A, $93, $52, $1A, $93, $52 ; G#3, C#4, E4 x2
+    .byte $1A, $93, $52, $1A, $93, $52 ; G#3, C#4, E4 x2
+    .byte $1A, $93, $52, $1A, $93, $52 ; G#3, C#4, E4 x2
+    .byte $FB, $93, $52, $FB, $93, $52 ; A3, C#4, E4 x2
+    .byte $FB, $7C, $2D, $FB, $7C, $2D ; A3, D4, F#4 x2
+    .byte $1A, $C4, $52, $1A, $C4, $52 ; G#3, B3, E4 x2
+    .byte $1A, $AB, $67, $1A, $AB, $67 ; G#3, C4, D#4 x2
+
+moonlight_pulse_hi:
+    .byte $FA, $F9, $F9, $FA, $F9, $F9 ; G#3, C#4, E4 x2
+    .byte $FA, $F9, $F9, $FA, $F9, $F9 ; G#3, C#4, E4 x2
+    .byte $FA, $F9, $F9, $FA, $F9, $F9 ; G#3, C#4, E4 x2
+    .byte $FA, $F9, $F9, $FA, $F9, $F9 ; G#3, C#4, E4 x2
+    .byte $F9, $F9, $F9, $F9, $F9, $F9 ; A3, C#4, E4 x2
+    .byte $F9, $F9, $F9, $F9, $F9, $F9 ; A3, D4, F#4 x2
+    .byte $FA, $F9, $F9, $FA, $F9, $F9 ; G#3, B3, E4 x2
+    .byte $FA, $F9, $F9, $FA, $F9, $F9 ; G#3, C4, D#4 x2
+
+moonlight_bass_lo:
+    .byte $26, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00 ; C#2
+    .byte $89, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00 ; B1
+    .byte $F8, $00, $00, $00, $00, $00, $B8, $00, $00, $00, $00, $00 ; A1, F#1
+    .byte $34, $00, $00, $00, $00, $00, $34, $00, $00, $00, $00, $00 ; G#1
+
+moonlight_bass_hi:
+    .byte $FB, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00 ; C#2
+    .byte $FB, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00 ; B1
+    .byte $FB, $00, $00, $00, $00, $00, $FC, $00, $00, $00, $00, $00 ; A1, F#1
+    .byte $FC, $00, $00, $00, $00, $00, $FC, $00, $00, $00, $00, $00 ; G#1
 
 .ifdef CHR_RAM
 .macro chr_tile row0, row1, row2, row3, row4, row5, row6, row7
