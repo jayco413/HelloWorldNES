@@ -12,6 +12,10 @@ PULSE1_CTRL = $4000
 PULSE1_SWEEP = $4001
 PULSE1_TIMER_LO = $4002
 PULSE1_TIMER_HI = $4003
+PULSE2_CTRL = $4004
+PULSE2_SWEEP = $4005
+PULSE2_TIMER_LO = $4006
+PULSE2_TIMER_HI = $4007
 TRIANGLE_CTRL = $4008
 TRIANGLE_TIMER_LO = $400A
 TRIANGLE_TIMER_HI = $400B
@@ -52,6 +56,9 @@ HELLO_BASE_COL = 10
 WORLD_BASE_COL = 16
 WORD_TILE_COUNT = 5
 MUSIC_BASS_HOLD = $00
+MUSIC_MELODY_REST = $01
+PULSE_SOFT_CTRL = $72
+PULSE_SILENT_CTRL = $70
 
 TILE_SPACE = $00
 TILE_H     = $01
@@ -173,16 +180,19 @@ wait_loop:
 .endproc
 
 .proc init_music
-    lda #$74
+    lda #PULSE_SOFT_CTRL
     sta PULSE1_CTRL
+    lda #PULSE_SILENT_CTRL
+    sta PULSE2_CTRL
     lda #$00
     sta PULSE1_SWEEP
+    sta PULSE2_SWEEP
     lda #$FF
     sta TRIANGLE_CTRL
     lda #$00
     sta MUSIC_INDEX
     sta MUSIC_DELAY
-    lda #%00000101
+    lda #%00000111
     sta APU_STATUS
     jsr tick_music
     rts
@@ -201,6 +211,22 @@ play_note:
     lda moonlight_pulse_hi, x
     sta PULSE1_TIMER_HI
 
+    ldy moonlight_melody_hi, x
+    beq melody_done
+    cpy #MUSIC_MELODY_REST
+    bne melody_note
+    lda #PULSE_SILENT_CTRL
+    sta PULSE2_CTRL
+    jmp melody_done
+
+melody_note:
+    lda #PULSE_SOFT_CTRL
+    sta PULSE2_CTRL
+    lda moonlight_melody_lo, x
+    sta PULSE2_TIMER_LO
+    sty PULSE2_TIMER_HI
+
+melody_done:
     ldy moonlight_bass_hi, x
     beq bass_done
     lda moonlight_bass_lo, x
@@ -852,6 +878,26 @@ moonlight_pulse_hi:
     .byte $F9, $F9, $F9, $F9, $F9, $F9 ; A3, D4, F#4 x2
     .byte $FA, $F9, $F9, $FA, $F9, $F9 ; G#3, B3, E4 x2
     .byte $FA, $F9, $F9, $FA, $F9, $F9 ; G#3, C4, D#4 x2
+
+moonlight_melody_lo:
+    .byte $00, $00, $00, $00, $00, $00 ; rest
+    .byte $00, $00, $00, $00, $00, $00 ; hold
+    .byte $00, $00, $00, $00, $00, $00 ; hold
+    .byte $00, $00, $00, $00, $00, $00 ; hold
+    .byte $0C, $00, $00, $00, $00, $00 ; G#4
+    .byte $FD, $00, $00, $00, $00, $00 ; A4
+    .byte $E1, $00, $00, $00, $00, $00 ; B4
+    .byte $C9, $00, $00, $E1, $00, $00 ; C#5, B4
+
+moonlight_melody_hi:
+    .byte $01, $00, $00, $00, $00, $00 ; rest
+    .byte $00, $00, $00, $00, $00, $00 ; hold
+    .byte $00, $00, $00, $00, $00, $00 ; hold
+    .byte $00, $00, $00, $00, $00, $00 ; hold
+    .byte $F9, $00, $00, $00, $00, $00 ; G#4
+    .byte $F8, $00, $00, $00, $00, $00 ; A4
+    .byte $F8, $00, $00, $00, $00, $00 ; B4
+    .byte $F8, $00, $00, $F8, $00, $00 ; C#5, B4
 
 moonlight_bass_lo:
     .byte $26, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00 ; C#2

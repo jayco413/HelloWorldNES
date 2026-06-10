@@ -5,6 +5,8 @@ let sampleCount = 0;
 let nonSilentSamples = 0;
 let minSample = Number.POSITIVE_INFINITY;
 let maxSample = Number.NEGATIVE_INFINITY;
+let maxAbsSample = 0;
+let nearFullScaleSamples = 0;
 let currentFrame = 0;
 const apuWrites = [];
 
@@ -16,6 +18,11 @@ const nes = new NES({
     sampleCount += 1;
     minSample = Math.min(minSample, left, right);
     maxSample = Math.max(maxSample, left, right);
+    maxAbsSample = Math.max(maxAbsSample, Math.abs(left), Math.abs(right));
+
+    if (Math.abs(left) >= 0.95 || Math.abs(right) >= 0.95) {
+      nearFullScaleSamples += 1;
+    }
 
     if (Math.abs(left) > 0.0001 || Math.abs(right) > 0.0001) {
       nonSilentSamples += 1;
@@ -27,7 +34,14 @@ nes.loadROM(rom);
 
 const originalApuWrite = nes.papu.writeReg.bind(nes.papu);
 nes.papu.writeReg = (address, value) => {
-  if (address === 0x4002 || address === 0x4003 || address === 0x400a || address === 0x400b) {
+  if (
+    address === 0x4002 ||
+    address === 0x4003 ||
+    address === 0x4006 ||
+    address === 0x4007 ||
+    address === 0x400a ||
+    address === 0x400b
+  ) {
     apuWrites.push({ frame: currentFrame, address, value });
   }
 
@@ -59,13 +73,17 @@ function collectTimers(lowAddress, highAddress) {
 }
 
 const pulseTimers = collectTimers(0x4002, 0x4003);
+const melodyTimers = collectTimers(0x4006, 0x4007);
 const bassTimers = collectTimers(0x400a, 0x400b);
 const expectedOpening = [0x21a, 0x193, 0x152];
 
 assert(sampleCount > 0, "Expected JSNES to emit audio samples");
 assert(nonSilentSamples > 0, "Expected background music to produce non-silent APU samples");
 assert(minSample !== maxSample, "Expected background music samples to vary over time");
+assert(maxAbsSample < 0.95, `Expected audio headroom below full scale, got ${maxAbsSample}`);
+assert(nearFullScaleSamples === 0, `Expected no near-full-scale samples, got ${nearFullScaleSamples}`);
 assert(pulseTimers.length >= 48, `Expected at least one full Moonlight pulse phrase, got ${pulseTimers.length} notes`);
+assert(melodyTimers.length >= 5, `Expected high melody entries on pulse 2, got ${melodyTimers.length} notes`);
 assert(bassTimers.length >= 6, `Expected triangle bass movement, got ${bassTimers.length} bass notes`);
 
 for (let i = 0; i < 12; i += 1) {
@@ -88,4 +106,17 @@ for (const expectedBass of [0x326, 0x389, 0x3f8, 0x4b8, 0x434]) {
   );
 }
 
-console.log(`Background music audio requirement passed: ${nonSilentSamples}/${sampleCount} samples were non-silent across ${pulseTimers.length} pulse notes and ${bassTimers.length} bass notes.`);
+const melodyTimerValues = new Set(melodyTimers.map((timer) => timer.timer));
+for (const expectedMelody of [0x10c, 0x0fd, 0x0e1, 0x0c9]) {
+  assert(
+    melodyTimerValues.has(expectedMelody),
+    `Expected high melody timer ${expectedMelody.toString(16)} in Moonlight progression`
+  );
+}
+
+assert(
+  melodyTimers[0].frame > pulseTimers[0].frame + 250,
+  "Expected high melody to enter after the opening accompaniment"
+);
+
+console.log(`Background music audio requirement passed: ${nonSilentSamples}/${sampleCount} samples were non-silent; peak=${maxAbsSample.toFixed(3)}, pulse=${pulseTimers.length}, melody=${melodyTimers.length}, bass=${bassTimers.length}.`);
