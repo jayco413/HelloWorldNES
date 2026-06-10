@@ -6,7 +6,12 @@ PPUADDR   = $2006
 PPUDATA   = $2007
 JOYPAD1   = $4016
 APU_FRAME = $4017
+APU_STATUS = $4015
 DMC_FREQ  = $4010
+PULSE1_CTRL = $4000
+PULSE1_SWEEP = $4001
+PULSE1_TIMER_LO = $4002
+PULSE1_TIMER_HI = $4003
 
 COLOR_INDEX   = $00
 JOY_CURRENT   = $01
@@ -24,6 +29,8 @@ TEMP_ROW = $0C
 TEMP_COL = $0D
 ADDR_LO = $0E
 ADDR_HI = $0F
+MUSIC_DELAY = $10
+MUSIC_INDEX = $11
 
 BUTTON_LEFT   = %00000001
 BUTTON_RIGHT  = %00000010
@@ -41,6 +48,7 @@ LAST_WORD_ROW = 27
 HELLO_BASE_COL = 10
 WORLD_BASE_COL = 16
 WORD_TILE_COUNT = 5
+MUSIC_NOTE_FRAMES = 8
 
 TILE_SPACE = $00
 TILE_H     = $01
@@ -84,6 +92,7 @@ TILE_UNDERLINE = $08
     stx PPUCTRL
     stx PPUMASK
     stx DMC_FREQ
+    stx APU_STATUS
     stx JOY_CURRENT
     stx JOY_PREVIOUS
     stx JOY_NEW_PRESS
@@ -101,6 +110,7 @@ TILE_UNDERLINE = $08
     sta HELLO_COL
     lda #WORLD_BASE_COL
     sta WORLD_COL
+    jsr init_music
 
 wait_vblank_1:
     bit PPUSTATUS
@@ -134,7 +144,7 @@ forever:
     lda INPUT_LOCK
     beq handle_input
     jsr advance_return_animation
-    jmp forever
+    jmp frame_done
 
 handle_input:
     jsr update_color_from_input
@@ -142,10 +152,13 @@ handle_input:
     jsr update_vertical_from_input
 
     lda COLOR_CHANGED
-    beq forever
+    beq frame_done
     jsr write_text_color
     lda #$00
     sta COLOR_CHANGED
+
+frame_done:
+    jsr tick_music
     jmp forever
 .endproc
 
@@ -153,6 +166,44 @@ handle_input:
 wait_loop:
     bit PPUSTATUS
     bpl wait_loop
+    rts
+.endproc
+
+.proc init_music
+    lda #$B6
+    sta PULSE1_CTRL
+    lda #$00
+    sta PULSE1_SWEEP
+    sta MUSIC_INDEX
+    sta MUSIC_DELAY
+    lda #$01
+    sta APU_STATUS
+    jsr tick_music
+    rts
+.endproc
+
+.proc tick_music
+    lda MUSIC_DELAY
+    beq play_note
+    dec MUSIC_DELAY
+    rts
+
+play_note:
+    ldx MUSIC_INDEX
+    lda moonlight_timer_lo, x
+    sta PULSE1_TIMER_LO
+    lda moonlight_timer_hi, x
+    sta PULSE1_TIMER_HI
+
+    lda #MUSIC_NOTE_FRAMES
+    sta MUSIC_DELAY
+    inx
+    cpx #moonlight_timer_lo_end - moonlight_timer_lo
+    bne store_index
+    ldx #$00
+
+store_index:
+    stx MUSIC_INDEX
     rts
 .endproc
 
@@ -761,6 +812,27 @@ hello_spiral_offsets:
 world_spiral_offsets:
     .byte $04, $04, $03, $02, $01, $00, $01, $02
     .byte $01, $00, $00, $00, $00, $00
+
+moonlight_timer_lo:
+    .byte $26, $1A, $93, $52 ; C#3, G#3, C#4, E4
+    .byte $1A, $93, $52, $1A ; G#3, C#4, E4, G#3
+    .byte $89, $1A, $C4, $52 ; B2, G#3, B3, E4
+    .byte $1A, $C4, $52, $1A ; G#3, B3, E4, G#3
+    .byte $F8, $A6, $FB, $93 ; A2, E3, A3, C#4
+    .byte $A6, $FB, $93, $A6 ; E3, A3, C#4, E3
+    .byte $34, $CE, $1A, $C4 ; G#2, D#3, G#3, B3
+    .byte $CE, $1A, $C4, $CE ; D#3, G#3, B3, D#3
+moonlight_timer_lo_end:
+
+moonlight_timer_hi:
+    .byte $FB, $FA, $F9, $F9 ; C#3, G#3, C#4, E4
+    .byte $FA, $F9, $F9, $FA ; G#3, C#4, E4, G#3
+    .byte $FB, $FA, $F9, $F9 ; B2, G#3, B3, E4
+    .byte $FA, $F9, $F9, $FA ; G#3, B3, E4, G#3
+    .byte $FB, $FA, $F9, $F9 ; A2, E3, A3, C#4
+    .byte $FA, $F9, $F9, $FA ; E3, A3, C#4, E3
+    .byte $FC, $FA, $FA, $F9 ; G#2, D#3, G#3, B3
+    .byte $FA, $FA, $F9, $FA ; D#3, G#3, B3, D#3
 
 .ifdef CHR_RAM
 .macro chr_tile row0, row1, row2, row3, row4, row5, row6, row7

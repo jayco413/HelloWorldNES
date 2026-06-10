@@ -1,6 +1,6 @@
 # Gameplay
 
-The ROM starts with `Hello World` centered on the screen in green text. `Hello` is initially underlined.
+The ROM starts with `Hello World` centered on the screen in green text while a Moonlight Sonata-inspired background music loop plays through the NES APU. `Hello` is initially underlined.
 
 Controls:
 
