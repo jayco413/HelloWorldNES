@@ -83,7 +83,7 @@ assert(minSample !== maxSample, "Expected background music samples to vary over 
 assert(maxAbsSample < 0.95, `Expected audio headroom below full scale, got ${maxAbsSample}`);
 assert(nearFullScaleSamples === 0, `Expected no near-full-scale samples, got ${nearFullScaleSamples}`);
 assert(pulseTimers.length >= 48, `Expected at least one full Moonlight pulse phrase, got ${pulseTimers.length} notes`);
-assert(melodyTimers.length >= 5, `Expected high melody entries on pulse 2, got ${melodyTimers.length} notes`);
+assert(melodyTimers.length >= 6, `Expected repeated high melody entries on pulse 2, got ${melodyTimers.length} notes`);
 assert(bassTimers.length >= 6, `Expected triangle bass movement, got ${bassTimers.length} bass notes`);
 
 for (let i = 0; i < 12; i += 1) {
@@ -107,12 +107,12 @@ for (const expectedBass of [0x326, 0x389, 0x3f8, 0x4b8, 0x434]) {
 }
 
 const melodyTimerValues = new Set(melodyTimers.map((timer) => timer.timer));
-for (const expectedMelody of [0x10c, 0x0fd, 0x0e1, 0x0c9]) {
-  assert(
-    melodyTimerValues.has(expectedMelody),
-    `Expected high melody timer ${expectedMelody.toString(16)} in Moonlight progression`
-  );
-}
+assert(melodyTimerValues.size === 1, `Expected repeated high G-sharp motif, got ${melodyTimerValues.size} different melody timers`);
+assert(melodyTimerValues.has(0x10c), "Expected high G-sharp melody timer in Moonlight progression");
+
+const melodyIntervals = melodyTimers.slice(1).map((timer, index) => timer.frame - melodyTimers[index].frame);
+assert(melodyIntervals.includes(28), "Expected short-short-long repeated high melody spacing");
+assert(melodyIntervals.some((interval) => interval > 80), "Expected a long hold between high melody phrases");
 
 assert(
   melodyTimers[0].frame > pulseTimers[0].frame + 250,
